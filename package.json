@@ -14,6 +14,7 @@
     "@fontsource/inter": "^5.1.0",
     "@mui/joy": "^5.0.0-beta.51",
     "@next/env": "^15.1.2",
+    "axios": "^1.7.9",
     "lodash": "^4.17.21",
     "next": "15.1.2",
     "next-themes": "^0.4.4",

@@ -12,12 +12,14 @@ import { IoMdAdd, IoMdRemove } from 'react-icons/io';
 import useCartStore from '@/stores/cartStore';
 import useMoneyStore from '@/stores/moneyStore';
 import toast from 'react-hot-toast';
+import { fetchMoney, updateMoney } from '@/app/api/money/utils';
+import { updateStock } from '@/app/api/products/utils';
 
 export default function CheckoutDialog() {
   const [open, setOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [inputMoney, setInputMoney] = useState<{ [value: number]: number; }>({});
-  const { totalPrice, setTotalPrice } = useCartStore()
+  const { cart, totalPrice, setTotalPrice, resetCart } = useCartStore()
   const { moneyList, setMoney } = useMoneyStore()
 
   const totalPaid = useMemo(() => Object.keys(inputMoney).reduce((acc, key) => acc + Number(key) * inputMoney[Number(key)], 0), [inputMoney])
@@ -25,13 +27,11 @@ export default function CheckoutDialog() {
   const isLack = useMemo(() => changes < 0, [changes])
 
   useEffect(() => {
-    const fetchMoney = async () => {
-      const res = await fetch("/api/money");
-      const data = await res.json();
-      setMoney(data);
+    const getMoneyList = async () => {
+      const res = await fetchMoney();
+      setMoney(res);
     };
-
-    fetchMoney();
+    getMoneyList();
   }, []);
 
   const handleOnChangeMoney = (value: number, action: 1 | -1) => {
@@ -41,17 +41,36 @@ export default function CheckoutDialog() {
     }));
   };
 
-  const onPaymentSuccess = () => {
-    // update money in stock and product in db
-    setTotalPrice(0);
-    setInputMoney({});
+  const onPaymentSuccess = async (money: Money[]) => {
+    try {
+      const moneyRes = await updateMoney(money);
+      const updateStockRes = await Promise.all(Object.values(cart).map(
+          async (item) => {
+            const stock = { ...item, amount: item.amount - item.count}
+            return await updateStock(item.id, stock)
+          }
+        ))
+      if (!moneyRes.error && updateStockRes.every((item) => !item.error)) {
+        toast.success("Payment success!", {
+          duration: 5000,
+        })
+        setTotalPrice(0);
+        resetCart();
+        setInputMoney({});
+        setOpen(false);
+      }
+    } catch (error) {
+      toast.error("Failed to update money and product in stock"); 
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOnConfirm = async () => {
     setLoading(true);
     
     // update money in stock from user input
-    let moneyInStock: Money[] = moneyList
+    let moneyInStock: Money[] = moneyList.map((item) => ({ id: item.id, value: item.value, amount: item.amount }));
     Object.entries(inputMoney).forEach(([key, value]) => {
       const index = moneyInStock.findIndex((item) => item.value === (+key));
       if (index !== -1) {
@@ -77,17 +96,13 @@ export default function CheckoutDialog() {
     }
 
     if (tmpChanges === 0) {
-      toast.success("Payment success!", {
-        duration: 5000,
-      })
-      onPaymentSuccess();
-      setOpen(false);
+      onPaymentSuccess(moneyInStock);
     } else {
       toast.error("Unfortunately, our money is out of stock\n Please try with another value of money", {
         duration: 5000,
       })
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

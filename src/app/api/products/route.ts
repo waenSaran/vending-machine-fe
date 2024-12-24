@@ -1,9 +1,8 @@
 import { transformProducts } from "@/utils/transformResponse";
 import { API_URL } from "../constants";
+import axios from "axios";
 
 export async function GET(_req: Request) {
-  const res = await fetch(API_URL + "/products")
-  const data = await res.json()
-
-  return Response.json(transformProducts(data))
+  const res = await axios.get(API_URL + "/products")
+  return Response.json(transformProducts(res.data))
 }

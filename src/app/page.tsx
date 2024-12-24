@@ -7,6 +7,7 @@ import toast, { Toaster } from "react-hot-toast";
 import Summary from "./components/simulator/Summary";
 import { Button, Card } from "@mui/joy";
 import useCartStore from "@/stores/cartStore";
+import { fetchProducts } from "./api/products/utils";
 
 const categories = [
   {
@@ -54,12 +55,11 @@ export default function Home() {
 
   useEffect(() => {
     const fetchItems = async () => {
-      const res = await fetch("api/products")
-      const data = await res.json() as Products[]
-      setItems(data)
+      const res = await fetchProducts()
+      setItems(res)
     }
     fetchItems()
-  }, [])
+  }, [cart])
 
   const handleAddToCart = (item: Products) => {
     if (total >= MAX_ITEM) {
